@@ -139,7 +139,7 @@ int main(int argc, char* argv[]) {
     printf("\nSRC PORT : %d",ntohs(tcp->th_sport));
     printf("\nDST PORT : %d\n",ntohs(tcp->th_dport));
     int * data = (int*)(packet + SIZE_OF_ETHERNET + SIZE_OF_IPV4 + SIZE_OF_TCP);
-    for(int i=0;i<4;i++)printf("%X",data[i]);
+    for(int i=0;i<16;i++)printf("%X",data[i]);
     printf("\n%u bytes captured\n", header->len);
   }
 
