@@ -93,18 +93,20 @@ struct libnet_tcp_hdr
 	u_int16_t th_urp;         /* urgent pointer */
 };
 
-void usage() {
-  printf("syntax: pcap_test <interface>\n");
-  printf("sample: pcap_test wlan0\n");
+void print_mac(u_int8_t*mac)
+{
+  printf("%02x:%02x:%02x:%02x:%02x:%02x",mac[0],mac[1],mac[2],mac[3],mac[4],mac[5]);
 }
 
 int main(int argc, char* argv[]) {
-  if (argc != 2) {
-    usage();
+
+  char *dev, errbuf[PCAP_ERRBUF_SIZE];
+  dev = pcap_lookupdev(errbuf);
+  if(dev==NULL){
+    printf("Can't find device\n");
     return -1;
   }
-  char errbuf[PCAP_ERRBUF_SIZE];
-  char* dev = argv[1];
+  printf("Device Name : %s\n",dev);  
   pcap_t* handle = pcap_open_live(dev, BUFSIZ, 1, 1000, errbuf);
   if (handle == NULL) {
     fprintf(stderr, "couldn't open device %s: %s\n", dev, errbuf);
@@ -123,23 +125,32 @@ int main(int argc, char* argv[]) {
 
     ethernet = (struct libnet_ethernet_hdr*)packet;
     printf("\nSRC MAC : ");
-    for(int i=0;i<ETHER_ADDR_LEN;i++)
-    {
-	printf("%02x ",ethernet->ether_dhost[i]);
-    }
+    print_mac(ethernet->ether_shost);
     printf("\nDST MAC : ");
-    for(int i=0;i<ETHER_ADDR_LEN;i++)
+    print_mac(ethernet->ether_dhost);
+    printf("\nETHERTYPE = 0x%04X" ,ntohs(ethernet->ether_type));
+    if(ntohs(ethernet->ether_type) != ETHERTYPE_IP)
     {
-    	printf("%02x ",ethernet->ether_shost[i]);
+      printf("\nEther type is not IP\n");
+      continue;
     }
     ip = (struct libnet_ipv4_hdr*)(packet + SIZE_OF_ETHERNET);
     printf("\nSRC IP : %s",inet_ntoa(ip->ip_src));
     printf("\nDST IP : %s",inet_ntoa(ip->ip_dst));
-    tcp = (struct libnet_tcp_hdr*)(packet + SIZE_OF_ETHERNET + SIZE_OF_IPV4);
+    printf("\nIP_P : %d",ip->ip_p);
+
+    if(ip->ip_p != 0x06)
+    {
+      printf("\nIP protocol is not TCP\n");
+      continue;
+    }
+    tcp = (struct libnet_tcp_hdr*)(ip + SIZE_OF_IPV4);
     printf("\nSRC PORT : %d",ntohs(tcp->th_sport));
     printf("\nDST PORT : %d\n",ntohs(tcp->th_dport));
-    int * data = (int*)(packet + SIZE_OF_ETHERNET + SIZE_OF_IPV4 + SIZE_OF_TCP);
-    for(int i=0;i<16;i++)printf("%X",data[i]);
+    
+    int bytes = 16;
+    char * data = (char*)(tcp + SIZE_OF_TCP);
+    for(int i=0;i<bytes;i++)printf("%X",data[i]);
     printf("\n%u bytes captured\n", header->len);
   }
 
